@@ -97,7 +97,7 @@ const expandedDir = untildify(process.env.WORKSPACE_DIR || '');
 // Timers/Queue/Concurrency
 export const CONNECTION_TIMEOUT: number = parseNumber(
   process.env.CONNECTION_TIMEOUT,
-  30000,
+  8 * 60 * 1000,
 );
 export const MAX_CONCURRENT_SESSIONS: number = parseNumber(
   process.env.MAX_CONCURRENT_SESSIONS,
