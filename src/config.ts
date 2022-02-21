@@ -44,7 +44,7 @@ const getDisabledFeatures = () => {
     );
   });
   if (
-    !parseJSONParam(process.env.ENABLE_DEBUG_VIEWER, true) &&
+    !parseJSONParam(process.env.ENABLE_DEBUG_VIEWER, false) &&
     !disabledFeatures.includes(Features.DEBUG_VIEWER)
   ) {
     disabledFeatures.push(Features.DEBUG_VIEWER);
