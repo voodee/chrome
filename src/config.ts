@@ -101,11 +101,11 @@ export const CONNECTION_TIMEOUT: number = parseNumber(
 );
 export const MAX_CONCURRENT_SESSIONS: number = parseNumber(
   process.env.MAX_CONCURRENT_SESSIONS,
-  10,
+  100,
 );
 export const QUEUE_LENGTH: number = parseNumber(
   process.env.MAX_QUEUE_LENGTH,
-  10,
+  100,
 );
 export const SINGLE_RUN: boolean = parseJSONParam(
   process.env.SINGLE_RUN,

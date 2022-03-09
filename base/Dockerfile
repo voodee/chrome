@@ -1,6 +1,8 @@
-FROM ubuntu:20.04
+FROM nvidia/opengl:1.2-glvnd-devel-ubuntu20.04
+
 
 ARG BLESS_USER_ID=999
+ARG DEBIAN_FRONTEND=noninteractive
 
 COPY fonts.conf /etc/fonts/local.conf
 
