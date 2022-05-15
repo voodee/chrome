@@ -28,7 +28,7 @@ const logExec = (cmd) => {
 
 const buildBase = async () => {
   await logExec(
-    `docker buildx build --quiet --push --platform ${TARGET_ARCH.join(
+    `docker buildx build --push --platform ${TARGET_ARCH.join(
       ',',
     )} -t ${BASE}:latest -t ${BASE}:${VERSION} ./base`,
   );
@@ -39,8 +39,5 @@ const buildBase = async () => {
   // docker builds are super fast.
   await buildBase();
 
-  await logExec(
-    `docker images -a | grep "${BASE}" | awk '{print $3}' | xargs docker rmi`,
-  );
   debug(`Complete! Cleaning up file-system and exiting.`);
 })();
