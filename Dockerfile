@@ -1,5 +1,5 @@
 ARG BASE_VERSION=latest
-FROM gcr.io/ubot-fd07c/chromebase:${BASE_VERSION}
+FROM browserless/base:${BASE_VERSION}
 
 # Application parameters and variables
 ENV APP_DIR=/usr/src/app
