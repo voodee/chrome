@@ -507,7 +507,6 @@ export const launchChrome = async (
     ...opts,
     args: [
       ...BROWSERLESS_ARGS,
-      `--display=:10`,
       ...(opts.args || []),
       `--remote-debugging-port=${port}`,
     ],
