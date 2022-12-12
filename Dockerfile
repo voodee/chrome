@@ -1,11 +1,17 @@
 FROM nvidia/opengl:1.2-glvnd-runtime-ubuntu20.04
 
+# Build Args
+ARG USE_CHROME_STABLE
+ARG PUPPETEER_CHROMIUM_REVISION
+ARG PUPPETEER_VERSION
+ARG PORT=3000
+ARG BLESS_USER_ID=999
+ARG DEBIAN_FRONTEND=noninteractive
+
 # Env vars for the nvidia-container-runtime.
 ENV NVIDIA_VISIBLE_DEVICES all
 ENV NVIDIA_DRIVER_CAPABILITIES all
 
-ARG BLESS_USER_ID=999
-ARG DEBIAN_FRONTEND=noninteractive
 
 COPY base/fonts.conf /etc/fonts/local.conf
 
@@ -114,12 +120,17 @@ RUN groupadd -r blessuser && useradd --uid ${BLESS_USER_ID} -r -g blessuser -G a
 
 # Application parameters and variables
 ENV APP_DIR=/usr/src/app
-ENV CONNECTION_TIMEOUT=1800000
+ENV PUPPETEER_CACHE_DIR=${APP_DIR}
+ENV PLAYWRIGHT_BROWSERS_PATH=${APP_DIR}
+ENV CHROME_PATH=/usr/bin/google-chrome
 ENV HOST=0.0.0.0
 ENV IS_DOCKER=true
 ENV LANG="C.UTF-8"
 ENV NODE_ENV=production
-ENV PORT=3000
+ENV PORT=${PORT}
+ENV PUPPETEER_CHROMIUM_REVISION=${PUPPETEER_CHROMIUM_REVISION}
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV USE_CHROME_STABLE=${USE_CHROME_STABLE}
 ENV WORKSPACE_DIR=$APP_DIR/workspace
 
 RUN mkdir -p $APP_DIR $WORKSPACE_DIR
@@ -135,6 +146,6 @@ RUN npm ci && npm run postinstall && npm run build && npm prune --production  &&
 USER blessuser
 
 # Expose the web-socket and HTTP ports
-EXPOSE 3000
+EXPOSE ${PORT}
 
 CMD ["./start.sh"]

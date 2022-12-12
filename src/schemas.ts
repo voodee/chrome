@@ -50,7 +50,6 @@ const addScriptTag = Joi.array()
   .items(
     Joi.object().keys({
       url: Joi.string(),
-      path: Joi.string(),
       content: Joi.string(),
       type: Joi.string(),
     }),
@@ -61,7 +60,6 @@ const addStyleTag = Joi.array()
   .items(
     Joi.object().keys({
       url: Joi.string(),
-      path: Joi.string(),
       content: Joi.string(),
     }),
   )
@@ -156,6 +154,7 @@ export const screenshot = Joi.object()
     rejectRequestPattern,
     rejectResourceTypes,
     requestInterceptors,
+    scrollPage: Joi.boolean(),
     selector: Joi.string(),
     setExtraHTTPHeaders,
     setJavaScriptEnabled,

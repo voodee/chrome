@@ -15,6 +15,7 @@ import { Schema } from 'joi';
 import _ from 'lodash';
 
 import fetch from 'node-fetch';
+import { CDPSession, Page } from 'puppeteer';
 
 import rmrf from 'rimraf';
 
@@ -487,7 +488,16 @@ export const getTimeoutParam = (
     req.url &&
     req.url.includes('webdriver') &&
     Object.prototype.hasOwnProperty.call(req, 'body')
-      ? _.get(req, ['body', 'desiredCapabilities', 'browserless.timeout'], null)
+      ? _.get(
+          req,
+          ['body', 'desiredCapabilities', 'browserless.timeout'],
+          null,
+        ) ||
+        _.get(
+          req,
+          ['body', 'capabilities', 'alwaysMatch', 'browserless:timeout'], // Selenium 4.5 > calls
+          null,
+        )
       : _.get(req, 'parsed.query.timeout', null);
 
   if (_.isArray(payloadTimer)) {
@@ -693,4 +703,11 @@ export const injectHostIntoSession = (
     devtoolsFrontendUrl,
     webSocketDebuggerUrl,
   };
+};
+
+export const getCDPClient = (page: Page): CDPSession => {
+  // @ts-ignore using internal CDP client
+  const c = page._client;
+
+  return typeof c === 'function' ? c.call(page) : c;
 };

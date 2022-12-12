@@ -1,40 +1,57 @@
-#!/usr/bin/env node
-/* eslint-disable no-undef */
-const child = require('child_process');
-const util = require('util');
+#!/usr/bin/env zx
 
-const debug = require('debug')('browserless-docker-deploy');
+/* eslint-disable no-undef */
+const fs = require('fs/promises');
+
 const getPort = require('get-port');
 const { map, noop } = require('lodash');
 const fetch = require('node-fetch');
 const puppeteer = require('puppeteer');
-
-const exec = util.promisify(child.exec);
+const argv = require('yargs').argv;
 
 const { releaseVersions, chromeVersions, version } = require('../package.json');
 
 const REPO = 'browserless/chrome';
-const BASE_VERSION = process.env.BASE_VERSION;
+const BASE_VERSION = argv.base;
 
 if (!BASE_VERSION) {
   throw new Error(
-    `Expected a $BASE_VERSION env variable to tag the ${REPO} repo, but none was found.`,
+    `Expected a --base switch to tag the ${REPO} repo with, but none was found, eg: "npm run deploy -- --base 1.19.0".`,
   );
 }
 
-const logExec = (cmd) => {
-  debug(`  "${cmd}"`);
-  return exec(cmd).then(({ stdout, stderr }) => {
-    if (stderr.trim().length > 0) {
-      console.warn(stderr.slice(-500));
-    }
-    return stdout.trim();
-  });
-};
+const requestedVersions = argv.versions
+  ? argv.versions.split(',')
+  : releaseVersions;
+const action = argv.action ? argv.action : 'push';
+const missingVersions = requestedVersions.filter(
+  (v) => !releaseVersions.includes(v),
+);
+
+// Validate arg parsing
+if (missingVersions.length) {
+  throw new Error(
+    `Versions: ${missingVersions.join(
+      ', ',
+    )} are missing from the package.json file manifest. Please double check your versions`,
+  );
+}
+
+if (!['push', 'load'].includes(action)) {
+  throw new Error(`--actions must be one of push or load`);
+}
+
+console.log(
+  `Building versions: ${requestedVersions.join(
+    ', ',
+  )} and ${action}ing into docker`,
+);
 
 async function cleanup() {
-  await logExec(`git reset origin/master --hard`);
-  await logExec(`rm -rf node_modules`);
+  await $`rm -rf browser.json`;
+  await $`rm -rf node_modules`;
+  await $`git clean -fd`;
+  await $`git reset master --hard`;
 }
 
 const deployVersion = async (tags, pptrVersion) => {
@@ -53,36 +70,26 @@ const deployVersion = async (tags, pptrVersion) => {
   const [patchBranch, minorBranch, majorBranch] = tags;
   const isChromeStable = majorBranch.includes('chrome-stable');
 
-  debug(
-    `Beginning docker build and publish of tag ${patchBranch} ${minorBranch} ${majorBranch}`,
-  );
+  process.env.PUPPETEER_CHROMIUM_REVISION = puppeteerChromiumRevision;
+  process.env.USE_CHROME_STABLE = false;
+  process.env.CHROMEDRIVER_SKIP_DOWNLOAD = true;
+  process.env.PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = true;
 
-  await logExec(`PUPPETEER_CHROMIUM_REVISION=${puppeteerChromiumRevision} \
-    ${
-      isChromeStable
-        ? 'USE_CHROME_STABLE=true CHROMEDRIVER_SKIP_DOWNLOAD=false PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true'
-        : ''
-    } \
-    npm install --silent --save --save-exact puppeteer@${puppeteerVersion}
-  `);
+  if (isChromeStable) {
+    process.env.USE_CHROME_STABLE = true;
+    process.env.CHROMEDRIVER_SKIP_DOWNLOAD = false;
+  }
 
-  await logExec(`PUPPETEER_CHROMIUM_REVISION=${puppeteerChromiumRevision} \
-    ${
-      isChromeStable
-        ? 'USE_CHROME_STABLE=true CHROMEDRIVER_SKIP_DOWNLOAD=false PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true'
-        : ''
-    } \
-    npm run postinstall
-  `);
+  const executablePath = puppeteer
+    .createBrowserFetcher({ product: 'chrome' })
+    .revisionInfo(puppeteerChromiumRevision).executablePath;
 
-  debug(`Fetching protocol JSON versioning for docker labels`);
+  await $`npm install --silent --save --save-exact puppeteer@${puppeteerVersion}`;
+  await $`npm run postinstall`;
+
   const port = await getPort();
   const browser = await puppeteer.launch({
-    executablePath: isChromeStable
-      ? '/usr/bin/google-chrome'
-      : puppeteer
-          .executablePath()
-          .replace(/[0-9]{6}/g, puppeteerChromiumRevision),
+    executablePath: isChromeStable ? '/usr/bin/google-chrome' : executablePath,
     args: [`--remote-debugging-port=${port}`, '--no-sandbox'],
   });
 
@@ -92,13 +99,23 @@ const deployVersion = async (tags, pptrVersion) => {
     /\s\(@(\b[0-9a-f]{5,40}\b)/,
   )[1];
 
-  await browser.close();
+  await Promise.all([
+    fs.writeFile(
+      'browser.json',
+      JSON.stringify({
+        ...versionJson,
+        puppeteerVersion,
+        debuggerVersion,
+      }),
+    ),
+    browser.close(),
+  ]);
 
   const chromeStableArg = isChromeStable ? 'true' : 'false';
 
   // docker build
-  await logExec(`docker buildx build \
-  --push \
+  await $`docker buildx build \
+  --${action} \
   --platform ${platform} \
   --build-arg "BASE_VERSION=${BASE_VERSION}" \
   --build-arg "PUPPETEER_CHROMIUM_REVISION=${puppeteerChromiumRevision}" \
@@ -112,26 +129,23 @@ const deployVersion = async (tags, pptrVersion) => {
   --label "puppeteerVersion=${puppeteerVersion}" \
   -t ${REPO}:${patchBranch} \
   -t ${REPO}:${minorBranch} \
-  -t ${REPO}:${majorBranch} .`);
+  -t ${REPO}:${majorBranch} .`;
 
-  await logExec(`git add --force hosts.json`).catch(noop);
-
-  await logExec(
-    `git commit --quiet -m "DEPLOY.js committing files for tag ${patchBranch}"`,
-  ).catch(noop);
-
-  await logExec(`git tag --force ${patchBranch}`);
-
-  await logExec(
-    `git push origin ${patchBranch} --force --quiet --no-verify &> /dev/null`,
-  ).catch(noop);
+  await $`git add --force hosts.json browser.json`.catch(noop);
+  await $`git commit --quiet -m "DEPLOY.js committing files for tag ${patchBranch}"`.catch(
+    noop,
+  );
+  await $`git tag --force ${patchBranch}`;
+  await $`git push origin ${patchBranch} --force --quiet --no-verify &> /dev/null`.catch(
+    noop,
+  );
 
   // git reset for next update
   await cleanup();
 };
 
 (async function deploy() {
-  const versions = map(releaseVersions, (pptrVersion) => {
+  const buildVersions = map(requestedVersions, (pptrVersion) => {
     const [major, minor, patch] = version.split('.');
 
     const patchBranch = `${major}.${minor}.${patch}-${pptrVersion}`;
@@ -145,7 +159,7 @@ const deployVersion = async (tags, pptrVersion) => {
     };
   });
 
-  await versions.reduce(
+  await buildVersions.reduce(
     (lastJob, { tags, pptrVersion }) =>
       lastJob
         .then(() => deployVersion(tags, pptrVersion))
@@ -155,6 +169,4 @@ const deployVersion = async (tags, pptrVersion) => {
         }),
     Promise.resolve(),
   );
-
-  debug(`Complete! Cleaning up file-system and exiting.`);
 })();

@@ -1,15 +1,16 @@
 import { mkdir } from 'fs/promises';
 import path from 'path';
 
+import { Page } from 'puppeteer';
+
 import { WORKSPACE_DIR } from '../config';
 import { IBefore } from '../types.d';
-import { id } from '../utils';
+import { id, getCDPClient } from '../utils';
 
 import { after as downloadAfter } from './download';
 
 export const before = async ({ page, code, debug, browser }: IBefore) => {
-  // @ts-ignore reaching into private methods
-  const client = page._client;
+  const client = getCDPClient(page);
   const renderer = await browser.newPage();
   const downloadPath = path.join(
     WORKSPACE_DIR,
@@ -19,15 +20,14 @@ export const before = async ({ page, code, debug, browser }: IBefore) => {
   const downloadName = id() + '.webm';
   let screencastAPI: any;
 
-  // @ts-ignore
-  await renderer._client.send('Page.setDownloadBehavior', {
+  await client.send('Page.setDownloadBehavior', {
     behavior: 'allow',
     downloadPath,
   });
 
   // Setup page handlers
   const setup = async () =>
-    await renderer.evaluateHandle((downloadName) => {
+    await renderer.evaluateHandle((downloadName: string) => {
       const screencastAPI = class {
         private canvas: HTMLCanvasElement;
         private ctx: CanvasRenderingContext2D;
@@ -107,12 +107,17 @@ export const before = async ({ page, code, debug, browser }: IBefore) => {
     }, downloadName);
 
   const startScreencast = async () => {
-    const viewport = page.viewport();
+    const viewport = page.viewport() as ReturnType<Page['viewport']>;
+
+    if (!viewport) {
+      throw new Error(`Couldn't obtain the page's viewport!`);
+    }
     screencastAPI = await setup();
     await page.bringToFront();
 
     await renderer.evaluateHandle(
-      (screencastAPI, width, height) => screencastAPI.start({ width, height }),
+      (screencastAPI: any, width: number, height: number) =>
+        screencastAPI.start({ width, height }),
       screencastAPI,
       viewport.width,
       viewport.height,
@@ -127,9 +132,9 @@ export const before = async ({ page, code, debug, browser }: IBefore) => {
 
     client.on(
       'Page.screencastFrame',
-      ({ data, sessionId }: { data: string; sessionId: string }) => {
+      ({ data, sessionId }: { data: string; sessionId: number }) => {
         renderer.evaluateHandle(
-          (screencastAPI, data) => screencastAPI.draw(data),
+          (screencastAPI: any, data: any) => screencastAPI.draw(data),
           screencastAPI,
           data,
         );
@@ -144,7 +149,7 @@ export const before = async ({ page, code, debug, browser }: IBefore) => {
     await client.send('Page.stopScreencast');
     await renderer.bringToFront();
     await renderer.evaluateHandle(
-      (screencastAPI) => screencastAPI.stop(),
+      (screencastAPI: any) => screencastAPI.stop(),
       screencastAPI,
     );
   };

@@ -1,6 +1,6 @@
 {
   "name": "browserless-chrome",
-  "version": "1.53.0",
+  "version": "1.57.0",
   "description": "Chrome-as-a-service on your own hardware or in the cloud.",
   "repository": "browserless/chrome",
   "engines": {
@@ -18,12 +18,14 @@
   ],
   "scripts": {
     "build": "npm run clean && tsc",
+    "bw-compatibility": "./scripts/bw-compatibility.js",
     "clean": "rimraf build",
-    "deploy": "cross-env DEBUG=browserless* ./scripts/deploy.js",
-    "deploy-base": "cross-env DEBUG=browserless* ./scripts/deploy-base.js",
-    "start": "npm run build && env-cmd -f ./.env.dev node build/index.js",
-    "dev": "node ./build",
-    "test": "cross-env DEBUG=quiet jest --runInBand --detectOpenHandles",
+    "deploy": "./scripts/deploy.js",
+    "deploy-base": "./scripts/deploy-base.js",
+    "dev": "npm run build && env-cmd -f ./.env.dev node build/index.js",
+    "start": "node ./build",
+    "test": "env-cmd -f ./src/tests/.env.test mocha --timeout 15000",
+    "test-all": "./scripts/test-all.js",
     "external": "rimraf debugger/devtools && node ./scripts/install-external-deps.js",
     "postinstall": "node ./scripts/postinstall.js",
     "snyk-protect": "snyk protect",
@@ -36,16 +38,6 @@
       "chromeRevision": "686378",
       "platform": "linux/amd64"
     },
-    "puppeteer-5.4.1": {
-      "puppeteer": "5.4.1",
-      "chromeRevision": "809590",
-      "platform": "linux/amd64"
-    },
-    "puppeteer-7.1.0": {
-      "puppeteer": "7.1.0",
-      "chromeRevision": "848005",
-      "platform": "linux/amd64"
-    },
     "puppeteer-9.1.1": {
       "puppeteer": "9.1.1",
       "chromeRevision": "869685",
@@ -56,23 +48,47 @@
       "chromeRevision": "901912",
       "platform": "linux/amd64,linux/arm64"
     },
-    "puppeteer-13.6.0": {
-      "puppeteer": "13.6.0",
-      "chromeRevision": "982053",
+    "puppeteer-13.1.3": {
+      "puppeteer": "13.1.3",
+      "chromeRevision": "950341",
+      "platform": "linux/amd64"
+    },
+    "puppeteer-14.4.1": {
+      "puppeteer": "14.4.1",
+      "chromeRevision": "991974",
+      "platform": "linux/amd64,linux/arm64"
+    },
+    "puppeteer-16.2.0": {
+      "puppeteer": "16.2.0",
+      "chromeRevision": "1022525",
+      "platform": "linux/amd64,linux/arm64"
+    },
+    "puppeteer-19.2.2": {
+      "puppeteer": "19.2.2",
+      "chromeRevision": "1056772",
       "platform": "linux/amd64,linux/arm64"
     },
     "chrome-stable": {
-      "puppeteer": "13.6.0",
-      "chromeRevision": "982053",
+      "puppeteer": "19.2.2",
+      "chromeRevision": "1056772",
       "platform": "linux/amd64"
     }
   },
+  "playwrightVersions": {
+    "default": "playwright-core",
+    "1.28": "playwright-core",
+    "1.27": "playwright-1.27",
+    "1.26": "playwright-1.26",
+    "1.25": "playwright-1.25",
+    "1.24": "playwright-1.24"
+  },
   "releaseVersions": [
-    "puppeteer-13.6.0",
+    "puppeteer-19.2.2",
+    "puppeteer-16.2.0",
+    "puppeteer-14.4.1",
+    "puppeteer-13.1.3",
     "puppeteer-10.4.0",
     "puppeteer-9.1.1",
-    "puppeteer-7.1.0",
-    "puppeteer-5.4.1",
     "puppeteer-1.20.0",
     "chrome-stable"
   ],
@@ -83,84 +99,89 @@
   },
   "dependencies": {
     "@types/archiver": "^5.3.0",
+    "@types/chai": "^4.3.4",
     "@types/cookie": "^0.5.0",
-    "@types/cors": "^2.8.4",
-    "@types/express": "^4.16.1",
+    "@types/cors": "^2.8.13",
+    "@types/express": "^4.17.14",
     "@types/http-proxy": "^1.17.8",
-    "@types/jest": "^27.0.1",
-    "@types/lodash": "^4.14.123",
+    "@types/lodash": "^4.14.191",
+    "@types/mocha": "^10.0.1",
     "@types/multer": "^1.3.7",
-    "@types/node": "^17.0.23",
-    "@types/node-fetch": "^2.5.12",
-    "@types/puppeteer": "^5.4.0",
+    "@types/node": "^18.11.12",
+    "@types/node-fetch": "^2.6.2",
     "@types/request": "^2.48.2",
     "@types/rimraf": "^3.0.0",
     "@types/shortid": "0.0.29",
     "archiver": "^5.0.0",
     "bluebird": "^3.5.5",
-    "browserless-debugger": "^1.0.2",
-    "chromedriver": "^101.0.0",
+    "browserless-debugger": "^1.0.3",
+    "chai": "^4.3.7",
+    "chromedriver": "^108.0.0",
     "cookie": "^0.5.0",
     "cors": "^2.8.4",
     "debug": "^4",
-    "express": "^4.16.2",
+    "express": "^4.18.2",
     "express-prom-bundle": "^6.3.1",
     "extract-zip": "^2.0.1",
-    "fs-extra": "^10.0.0",
+    "fs-extra": "^11.1.0",
     "get-port": "^5.0.0",
     "http-proxy": "^1.16.2",
-    "jest": "^27.0.6",
-    "joi": "^17.2.1",
-    "joi-to-swagger": "^6.0.1",
-    "lighthouse": "^9.0.0",
+    "joi": "^17.7.0",
+    "joi-to-swagger": "^6.1.1",
+    "lighthouse": "^9.6.8",
     "lodash": "^4.17.11",
-    "multer": "^1.4.1",
+    "mocha": "^10.1.0",
+    "mocha-chai-jest-snapshot": "^1.1.3",
+    "multer": "1.4.5-lts.1",
     "node-fetch": "^2.6.7",
     "node-pdftk": "^2.0.0",
-    "playwright-core": "^1.20.1",
-    "prom-client": "^14.0.0",
-    "puppeteer": "^13.6.0",
+    "playwright-1.24": "npm:playwright-core@1.24.2",
+    "playwright-1.25": "npm:playwright-core@1.25.2",
+    "playwright-1.26": "npm:playwright-core@1.26.1",
+    "playwright-1.27": "npm:playwright-core@1.27.1",
+    "playwright-core": "^1.28.1",
+    "prom-client": "^14.1.0",
+    "puppeteer": "^19.4.0",
     "puppeteer-extra": "^3.1.15",
-    "puppeteer-extra-plugin-stealth": "^2.6.5",
+    "puppeteer-extra-plugin-stealth": "^2.11.1",
     "queue": "^6.0.0",
     "request": "^2.83.0",
     "rimraf": "^3.0.0",
-    "selenium-webdriver": "^4.0.0",
-    "sharp": "^0.30.0",
-    "snyk": "^1.316.1",
-    "swagger-ui-express": "^4.2.0",
-    "systeminformation": "^5.0.5",
-    "table": "^6.0.1",
+    "selenium-webdriver": "^4.7.0",
+    "sharp": "^0.31.2",
+    "snyk": "^1.1069.0",
+    "swagger-ui-express": "^4.6.0",
+    "systeminformation": "^5.16.4",
+    "table": "^6.8.1",
     "tree-kill": "^1.2.0",
-    "ts-jest": "^27.1.3",
-    "typescript": "^4.2.2",
+    "ts-node": "^10.8.0",
+    "typescript": "^4.9.4",
     "untildify": "^4.0.0",
-    "vm2": "^3.9.5"
+    "vm2": "^3.9.13"
   },
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^5.1.0",
-    "@typescript-eslint/parser": "^5.1.0",
+    "@typescript-eslint/eslint-plugin": "^5.46.0",
+    "@typescript-eslint/parser": "^5.46.0",
     "cross-env": "^7.0.3",
     "env-cmd": "^10.0.0",
-    "eslint": "^8.0.1",
+    "eslint": "^8.29.0",
     "eslint-plugin-import": "^2.24.0",
-    "prettier": "^2.2.1",
-    "simple-git-hooks": "^2.2.0"
+    "prettier": "^2.8.1",
+    "simple-git-hooks": "^2.8.1",
+    "yargs": "^17.6.2",
+    "zx": "^7.1.1"
   },
-  "jest": {
-    "testEnvironment": "node",
-    "rootDir": "src",
-    "moduleFileExtensions": [
-      "ts",
-      "js"
+  "overrides": {
+    "playwright-1.21": {
+      "jpeg-js": "0.4.4"
+    }
+  },
+  "mocha": {
+    "extension": [
+      "ts"
     ],
-    "transform": {
-      ".(ts)": "ts-jest"
-    },
-    "testRegex": "(/__tests__/.*|(\\.|/)(test|spec))\\.tsx?$",
-    "setupFiles": [
-      "<rootDir>/tests/jest/setEnvVars.js"
-    ]
+    "spec": "src/tests/**/*.spec.ts",
+    "require": "ts-node/register"
   },
   "snyk": true
 }
